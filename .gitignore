@@ -1,0 +1,17 @@
+*~
+
+output
+*.mexw64
+*.mexw32
+*.mexa64
+*.mexmaci64
+
+.DS_Store
+
+cBinghamNorm?.m
+cBinghamGradLogNorm?.m
+cBinghamGradNormDividedByNorm?.m
+
+Thumbs.db*
+*.asv
+/testResults.tap
