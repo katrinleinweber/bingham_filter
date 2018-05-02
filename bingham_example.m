@@ -3,29 +3,25 @@ clc;
 close all; 
 D = importdata('/home/suddhu/Documents/courses/16833/project/quat_0.001_0.3_0.03.csv'); 
 
-E = importdata('/home/suddhu/software/libDirectional_bingham/MH_03_easy_dq-1.txt');
-
+% for EUROC data 
+% E = importdata('/home/suddhu/software/libDirectional_bingham/MH_03_easy_dq-1.txt');
 % j = 1;
 % for i = 1:5: length(E) - 4
 %     D(j,1:4) = E(i+1:i+4); 
 %     j = j + 1; 
 % end
 
-% subplot(1,2,1); 
-% hold on;
-% subplot(1,2,2); 
-% hold on;
-
-%D = [[1 0 0 0]; D];
-%D = D(2:1000,:);
-plot_pause_time = 0.01;
 
 for i = 1:size(D,1)-1 
     q_delta(i,:) = get_delta_quat(D(i,:)',D(i+1,:)'); 
+    q_delta(i,:) = q_delta(i,:)/norm(q_delta(i,:));
 end
 
+% intialization
 filter = BinghamFilter();
-Z = [-200 -200 -200 0]';
+Z = [-1 -1 -1 0]';
+%Z = [-100 -100 -100 0]';
+
 M = [0 0 0 1; 
      0 0 1 0; 
      0 1 0 0; 
@@ -33,48 +29,67 @@ M = [0 0 0 1;
 %  B = BinghamDistribution(Z,M);
 B = BinghamDistribution(Z,M(:, [1 2 3 4]));
 
-Z_sensor = [-20000 -20000 -20000 0]';
-M_sensor = [0 0 0 1; 
+% system noise 
+Z_sys = [-5000 -5000 -5000 0]';
+M_sys = [0 0 0 1; 
              0 0 1 0; 
              0 1 0 0; 
              1 0 0 0 ];
-%M_sensor = [0 0 0 1; 0 0 1 0; 0 1 0 0; 1 0 0 0 ];
-B_sensor = BinghamDistribution(Z_sensor, M_sensor(:,[1 2 3 4]));
-% B_sensor = BinghamDistribution(Z_sensor, M_sensor(:,[ 3 1 2 4]));
-% B_sensor = BinghamDistribution(Z_sensor, M_sensor(:,[ 3 1 2 4]));
+B_sys = BinghamDistribution(Z_sys, M_sys(:,[1 2 3 4]));
 
-%figure('units','normalized','outerposition',[0 0 1 1])
+% measurement noise 
+Z_measure = [-500 -500 -500 0]';
+M_measure = [0 0 0 1; 
+             0 0 1 0; 
+             0 1 0 0; 
+             1 0 0 0 ];
+B_measure = BinghamDistribution(Z_measure, M_measure(:,[1 2 3 4]));
+
 filter.setState(B);    
 
+% generate noisy data 
+for i = 1:size(D,1) - 1    
+    filter.setState(B_sys); 
+    B_sample = filter.getEstimate(); 
+    A = B_sample.sample(1); 
+    z  = quaternionMultiplication(A,q_delta(i,:)');  
+    q_delta_noise(i,:) = z; 
+end
 
-filter.setState(B);    
+% init
+z_noisy = B.mode(); 
+z_clean = B.mode(); 
+filter.setState(B);
 
-%% update identity with different measurement
+% run filter 
 for i = 1:size(D,1) -1
-    B.compose(B_sensor); 
-    A = B.sample(1); 
-            
-    z  = quaternionMultiplication(B.mode(),q_delta(i,:)');     
-    z = z/norm(z); 
-    filter.predictNonlinear(@(x) z, B_sensor);
-    B = filter.getEstimate();
+    filter.updateIdentity(B, q_delta_noise(i,:)'); 
+        
+    filter.predictNonlinear(@(x) x, B_sys);
     
-    Bingham_predict(:,i) = B.mode(); 
-    Z(:,i) = z;
+    B_predict = filter.getEstimate(); 
+   
+    z_noisy  = quaternionMultiplication(z_noisy,q_delta_noise(i,:)');     
+    z_clean  = quaternionMultiplication(z_clean,B_predict.mode());     
     
-    %get_distance_simple(Bingham_predict(:,i)', z')
+    plot_graphs(z_noisy,z_clean); 
+
+end
+
+
+function plot_graphs(z_noisy,z_clean)
+    plot_pause_time = 0.01;
 
     subplot(2,2,1); 
     daspect([1 1 1])
     axis vis3d;
-    alx1 = plot_quaternions_animate(A,plot_pause_time*0.1);
-
+    alx1 = plot_quaternions_animate(z_noisy,plot_pause_time*0.1);
 
     subplot(2,2,2); 
     daspect([1 1 1])
     axis vis3d;
-    alx2 = plot_quaternions_animate(Bingham_predict(:,i), plot_pause_time); 
-
+    alx2 = plot_quaternions_animate(z_clean, plot_pause_time); 
+   
     orange = [255,165,0]/255; 
     
     subplot(2,2,3);
@@ -91,40 +106,21 @@ for i = 1:size(D,1) -1
     plot3( alx2(1,3), alx2(2,3), alx2(3,3),'.-', 'Color',orange );
     xlim([-1 1]); ylim([-1 1]); zlim([-1 1]); 
     hold on; 
-
 end
 
-Bingham_predict = Bingham_predict';
-
-
-for i = 1:size(Bingham_predict,1)
-    dist_q(i,1) = get_distance_simple(Bingham_predict(i,:), D(i+1,:));
-end
-
-
-% for i = 1:size(D,1)
-% subplot(1,2,1); 
-% plot_quaternions_animate(D(i,:), 0.0001);
-% 
-% subplot(1,2,2); 
-% plot_quaternions_animate(Bingham_predict(i,:), 0.0001); 
-% end
-
-
+% get quaternion difference
 function q_delta = get_delta_quat(qa, qb)
     qa_inv = [qa(1) -qa(2:4)'] ;
     qa_inv = qa_inv / norm(qa_inv);
     q_delta = quaternionMultiplication(qa_inv', qb);
-%     q_delta = quaternionMultiplication(qInv(qa), qb);
-    
-%     q_delta = quaternionMultiplication(qb,qa_inv');
 end
 
-
+% get distance angle b/w quaternions
 function dist_q = get_distance_angle(qa, qb)
     dist_q = acos(2*sum(qa.*qb)^2 - 1);
 end
 
+% get dist simple b/w quaternions
 function dist_q = get_distance_simple(qa, qb)
     dist_q = 1- sum(qa.*qb);
 end

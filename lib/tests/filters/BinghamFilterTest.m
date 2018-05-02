@@ -19,6 +19,8 @@ classdef BinghamFilterTest < matlab.unittest.TestCase
             testCase.verifyEqual(B.Z, B1.Z);
             
             %% predict identity
+            % Z increase in this case
+            % M is same as update 
             filter.setState(B);
             Bnoise = BinghamDistribution([-3 0]', [0 1; 1 0]);
             filter.predictIdentity(Bnoise);
@@ -28,6 +30,8 @@ classdef BinghamFilterTest < matlab.unittest.TestCase
             testCase.verifyGreaterThanOrEqual(B2.Z, B.Z);
             
             %% update identity
+            % Z decrease in this case
+            % M is same as predict 
             filter.setState(B);
             filter.updateIdentity(Bnoise, B.mode());
             B3 = filter.getEstimate();
@@ -36,6 +40,8 @@ classdef BinghamFilterTest < matlab.unittest.TestCase
             testCase.verifyLessThanOrEqual(B3.Z, B.Z);
             
             %% update identity with different measurement
+            % Z decrease in this case 
+            % change mode??
             filter.setState(B);
             z = B.mode()+[0.1,0]';
             filter.updateIdentity(Bnoise, z/norm(z));
