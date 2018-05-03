@@ -1,15 +1,14 @@
 clear all; 
 clc; 
 close all; 
-D = importdata('/home/suddhu/Documents/courses/16833/project/quat_0.001_0.3_0.03.csv'); 
 
 % for EUROC data 
-% E = importdata('/home/suddhu/software/libDirectional_bingham/MH_03_easy_dq-1.txt');
-% j = 1;
-% for i = 1:5: length(E) - 4
-%     D(j,1:4) = E(i+1:i+4); 
-%     j = j + 1; 
-% end
+E = importdata('/home/suddhu/software/libDirectional_bingham/MH_03_easy_dq-1.txt');
+j = 1;
+for i = 1:5: length(E) - 4
+    D(j,1:4) = E(i+1:i+4); 
+    j = j + 1; 
+end
 
 for i = 1:size(D,1)-1 
     q_delta(i,:) = get_delta_quat(D(i,:)',D(i+1,:)'); 
@@ -18,24 +17,24 @@ end
 
 % intialization
 filter = BinghamFilter();
-%Z = [-1 -1 -1 0]';
 Z = [-1 -1 -1 0]';
 
 M = [0 0 0 1; 
      0 0 1 0; 
      0 1 0 0; 
      1 0 0 0 ];
+% M = eye(4); 
 %  B = BinghamDistribution(Z,M);
 B = BinghamDistribution(Z,M(:, [1 2 3 4]));
 
 % system noise 
-% Z_sys = [-5000 -5000 -5000 0]';
-Z_sys = [-50000 -50000 -50000 0]';
+Z_sys = [-5000 -5000 -5000 0]';
 
 M_sys = [0 0 0 1; 
              0 0 1 0; 
              0 1 0 0; 
              1 0 0 0 ];
+% M_sys = eye(4); 
 B_sys = BinghamDistribution(Z_sys, M_sys(:,[1 2 3 4]));
 
 % measurement noise 
@@ -46,11 +45,11 @@ M_measure = [0 0 0 1;
              1 0 0 0 ];
 B_measure = BinghamDistribution(Z_measure, M_measure(:,[1 2 3 4]));
 
-filter.setState(B);    
+filter.setState(B_sys); 
 
+q_delta_noise = zeros(size(q_delta)); 
 % generate noisy data 
 for i = 1:size(D,1) - 1    
-    filter.setState(B_sys); 
     B_sample = filter.getEstimate(); 
     A = B_sample.sample(1); 
     z  = quaternionMultiplication(A,q_delta(i,:)');  
@@ -66,8 +65,9 @@ filter.setState(B);
 
 % run filter 
 for i = 1:size(D,1) -1
-%     z_noisy = B.mode(); 
-%     z_clean = B.mode(); 
+    z_noisy = B.mode(); 
+    z_clean = B.mode(); 
+    
     filter.setState(B);
 
     filter.updateIdentity(B_sys, q_delta_noise(i,:)'); 
@@ -83,11 +83,13 @@ for i = 1:size(D,1) -1
    
     plot_graphs(z_noisy,z_clean); 
     
+    %plot_graphs(z_gt,z_clean); 
+    
 %     100*(i/size(D,1))
 end
 
 function plot_graphs(z_noisy,z_clean)
-    plot_pause_time = 0.000001;
+    plot_pause_time = 0.0001;
 
     subplot(2,2,1); 
     daspect([1 1 1])

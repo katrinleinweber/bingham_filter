@@ -63,7 +63,8 @@ classdef BinghamFilter < AbstractAxialFilter
             %   Bw (BinghamDistribution)
             %       distribution of noise
           
-            [deterministicSamples, sampleWeights] = this.B.sampleDeterministic(0.5);
+%             [deterministicSamples, sampleWeights] = this.B.sampleDeterministic(0.5);
+            [deterministicSamples, sampleWeights] = this.B.sampleDeterministic(1);
 
             % Propagate each sample through the system function.
             for i=1:numel(sampleWeights)
