@@ -11,7 +11,7 @@ use:
 Frederik J. Simons, F. A. Dahlen, and Mark A. Wieczorek
 Spatiospectral Concentration on a Sphere
 SIAM Rev., 48(3), 2006, 504-536.
-http://dx.doi.org/10.1137/S0036144504445765
+https://doi.org/10.1137/S0036144504445765
 
 
 Where do I start?
